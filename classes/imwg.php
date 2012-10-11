@@ -126,47 +126,40 @@ class Imwg
    */
   private function create_image_resource()
   {
-    try
+    if (File::exists(static::$file))
     {
-      if (File::exists(static::$file))
+      switch (static::$file_info['type'])
       {
-        switch (static::$file_info['type'])
-        {
-          case 'JPG':
-            static::$image_resource = imagecreatefromjpeg(static::$file);
-            static::$image_quality = 92;
-            break;
+        case 'JPG':
+          static::$image_resource = imagecreatefromjpeg(static::$file);
+          static::$image_quality = 92;
+          break;
 
-          case 'GIF':
-            static::$image_resource = imagecreatefromgif(static::$file);
-            break;
+        case 'GIF':
+          static::$image_resource = imagecreatefromgif(static::$file);
+          break;
 
-          case 'PNG': //allow transparency for png
-            static::$image_resource = imagecreatefrompng(static::$file);
-            imagealphablending(static::$image_resource, false);
-            imagesavealpha(static::$image_resource, true);
-            static::$image_quality = 0;
-            break;
+        case 'PNG': //allow transparency for png
+          static::$image_resource = imagecreatefrompng(static::$file);
+          imagealphablending(static::$image_resource, false);
+          imagesavealpha(static::$image_resource, true);
+          static::$image_quality = 0;
+          break;
 
-          case 'BMP': //convert the bmp to jpg
-            static::$image_resource = namespace\Bmp2jpg::make(static::$file);
-            $this->convert("JPG");
-            break;
+        case 'BMP': //convert the bmp to jpg
+          static::$image_resource = namespace\Bmp2jpg::make(static::$file);
+          $this->convert("JPG");
+          break;
 
-          default:
-            throw(new Exception('Wrong image-type ' . static::$file . '; Only JPG, GIF, PNG and some kind of BMP are supportet'));
-        }
-
-        static::$file_name = basename(static::$file);
+        default:
+          throw(new Exception('Wrong image-type ' . static::$file . '; Only JPG, GIF, PNG and some kind of BMP are supportet'));
       }
-      else
-      {
-        throw(new Exception('File ' . static::$file . ' does not exist.'));
-      }
+
+      static::$file_name = basename(static::$file);
     }
-    catch (Exception $e)
+    else
     {
-      Error::exception($e);
+      throw(new Exception('File ' . static::$file . ' does not exist.'));
     }
   }
 
@@ -183,102 +176,95 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
+      $holdProportions = true;
+      if (is_null($width) && is_null($height))
+      { // nothing to do, return
+        return $this;
+      }
+      // Set the max-width/height if only 1 param is given
+      if (!is_null($width) && is_null($height))
       {
-        $holdProportions = true;
-        if (is_null($width) && is_null($height))
-        { // nothing to do, return
-          return $this;
-        }
-        // Set the max-width/height if only 1 param is given
-        if (!is_null($width) && is_null($height))
+        $height = $width;
+      }
+      elseif (is_null($width) && !is_null($height))
+      {
+        $width = $height;
+      }
+      else
+      {
+        $holdProportions = false;
+        $newW = $width;
+        $newH = $height;
+      }
+      if ($holdProportions)
+      {
+        // if $min is false, longest edge is $width
+        // if $min is true, shortest edge is $width
+        $ratioW = $width / static::$file_info['width'];
+        $ratioH = $height / static::$file_info['height'];
+        if ($min) // shortest edge is $width
         {
-          $height = $width;
-        }
-        elseif (is_null($width) && !is_null($height))
-        {
-          $width = $height;
-        }
-        else
-        {
-          $holdProportions = false;
-          $newW = $width;
-          $newH = $height;
-        }
-        if ($holdProportions)
-        {
-          // if $min is false, longest edge is $width
-          // if $min is true, shortest edge is $width
-          $ratioW = $width / static::$file_info['width'];
-          $ratioH = $height / static::$file_info['height'];
-          if ($min) // shortest edge is $width
+          if ($ratioW < $ratioH)
           {
-            if ($ratioW < $ratioH)
-            {
-              $newW = round(static::$file_info['width'] * $ratioH);
-              $newH = round(static::$file_info['height'] * $ratioH);
-            }
-            else
-            {
-              $newW = round(static::$file_info['width'] * $ratioW);
-              $newH = round(static::$file_info['height'] * $ratioW);
-            }
+            $newW = round(static::$file_info['width'] * $ratioH);
+            $newH = round(static::$file_info['height'] * $ratioH);
           }
-          else // longest edge is $width
+          else
           {
-            if ($ratioW < $ratioH)
-            {
-              $newW = round(static::$file_info['width'] * $ratioW);
-              $newH = round(static::$file_info['height'] * $ratioW);
-            }
-            else
-            {
-              $newW = round(static::$file_info['width'] * $ratioH);
-              $newH = round(static::$file_info['height'] * $ratioH);
-            }
+            $newW = round(static::$file_info['width'] * $ratioW);
+            $newH = round(static::$file_info['height'] * $ratioW);
           }
         }
-        $tempImage = ImageCreateTruecolor($newW, $newH);
-        // PNG needs some help, otherwise it loses the transparency
-        // This works, maybe someone has a shorter version, so let me know
-        if (static::$file_info['type'] == "PNG")
+        else // longest edge is $width
         {
-          // make the tempImage transparent
-          imagealphablending($tempImage, true);
-          $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
-          imagefill($tempImage, 0, 0, $transparent);
-          ImageCopyResampled($tempImage, static::$image_resource, 0, 0, 0, 0, $newW, $newH, static::$file_info['width'], static::$file_info['height']);
-          ImageDestroy(static::$image_resource);
-          // new resource
-          static::$image_resource = ImageCreateTruecolor($newW, $newH);
-          imagealphablending(static::$image_resource, true);
-          imagesavealpha(static::$image_resource, false);
-          $transparent = imagecolorallocatealpha(static::$image_resource, 0, 0, 0, 127);
-          imagefill(static::$image_resource, 0, 0, $transparent);
-          imagecopy(static::$image_resource, $tempImage, 0, 0, 0, 0, $newW, $newH);
-          // Alphablending for savealpha to false
-          imagealphablending(static::$image_resource, false);
-          // Alpha save
-          imagesavealpha(static::$image_resource, true);
+          if ($ratioW < $ratioH)
+          {
+            $newW = round(static::$file_info['width'] * $ratioW);
+            $newH = round(static::$file_info['height'] * $ratioW);
+          }
+          else
+          {
+            $newW = round(static::$file_info['width'] * $ratioH);
+            $newH = round(static::$file_info['height'] * $ratioH);
+          }
         }
-        else
-        {
-          ImageCopyResampled($tempImage, static::$image_resource, 0, 0, 0, 0, $newW, $newH, static::$file_info['width'], static::$file_info['height']);
-          ImageDestroy(static::$image_resource);
-          // new resource
-          static::$image_resource = ImageCreateTruecolor($newW, $newH);
-          imagecopy(static::$image_resource, $tempImage, 0, 0, 0, 0, $newW, $newH);
-        }
-        ImageDestroy($tempImage);
+      }
+      $tempImage = ImageCreateTruecolor($newW, $newH);
+      // PNG needs some help, otherwise it loses the transparency
+      // This works, maybe someone has a shorter version, so let me know
+      if (static::$file_info['type'] == "PNG")
+      {
+        // make the tempImage transparent
+        imagealphablending($tempImage, true);
+        $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
+        imagefill($tempImage, 0, 0, $transparent);
+        ImageCopyResampled($tempImage, static::$image_resource, 0, 0, 0, 0, $newW, $newH, static::$file_info['width'], static::$file_info['height']);
+        ImageDestroy(static::$image_resource);
+        // new resource
+        static::$image_resource = ImageCreateTruecolor($newW, $newH);
+        imagealphablending(static::$image_resource, true);
+        imagesavealpha(static::$image_resource, false);
+        $transparent = imagecolorallocatealpha(static::$image_resource, 0, 0, 0, 127);
+        imagefill(static::$image_resource, 0, 0, $transparent);
+        imagecopy(static::$image_resource, $tempImage, 0, 0, 0, 0, $newW, $newH);
+        // Alphablending for savealpha to false
+        imagealphablending(static::$image_resource, false);
+        // Alpha save
+        imagesavealpha(static::$image_resource, true);
+      }
+      else
+      {
+        ImageCopyResampled($tempImage, static::$image_resource, 0, 0, 0, 0, $newW, $newH, static::$file_info['width'], static::$file_info['height']);
+        ImageDestroy(static::$image_resource);
+        // new resource
+        static::$image_resource = ImageCreateTruecolor($newW, $newH);
+        imagecopy(static::$image_resource, $tempImage, 0, 0, 0, 0, $newW, $newH);
+      }
+      ImageDestroy($tempImage);
 
-        static::$file_info['width'] = $newW;
-        static::$file_info['height'] = $newH;
-        static::$file_info['attr'] = 'width="' . $newW . '" height="' . $newH . '"';
-      }
-      catch (Exception $e)
-      {
-        Error::exception($e);
-      }
+      static::$file_info['width'] = $newW;
+      static::$file_info['height'] = $newH;
+      static::$file_info['attr'] = 'width="' . $newW . '" height="' . $newH . '"';
     }
     return $this;
   }
@@ -335,52 +321,45 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
+      if (is_null($width) && is_null($height))
       {
-        if (is_null($width) && is_null($height))
-        {
-          return $this;
-        }
-        // No width given, lets make a square
-        elseif (!is_null($width) && is_null($height))
-        {
-          $height = $width;
-        }
+        return $this;
+      }
+      // No width given, lets make a square
+      elseif (!is_null($width) && is_null($height))
+      {
+        $height = $width;
+      }
 
-        $tempImage = ImageCreateTruecolor(static::$file_info['width'], static::$file_info['height']);
-        if (static::$file_info['type'] == "PNG")
-        { // PNG alpha help
-          imagealphablending($tempImage, true);
-          $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
-          imagefill($tempImage, 0, 0, $transparent);
-        }
-        ImageCopy($tempImage, static::$image_resource, 0, 0, 0, 0, static::$file_info['width'], static::$file_info['height']);
-        ImageDestroy(static::$image_resource);
-        // new resource
-        static::$image_resource = ImageCreateTruecolor($width, $height);
-        if (static::$file_info['type'] == "PNG")
-        { // PNG alpha help
-          imagealphablending(static::$image_resource, false);
-          $transparent = imagecolorallocatealpha(static::$image_resource, 0, 0, 0, 127);
-          imagefill(static::$image_resource, 0, 0, $transparent);
-        }
-        imagecopy(static::$image_resource, $tempImage, 0, 0, $posX, $posY, $width, $height);
-        if (static::$file_info['type'] == "PNG")
-        {
-          // alphabelinding false for savealpha
-          imagealphablending(static::$image_resource, false);
-          // save alpha
-          imagesavealpha(static::$image_resource, true);
-        }
-        ImageDestroy($tempImage);
-        static::$file_info['width'] = $width;
-        static::$file_info['height'] = $height;
-        static::$file_info['attr'] = 'width="' . $width . '" height="' . $height . '"';
+      $tempImage = ImageCreateTruecolor(static::$file_info['width'], static::$file_info['height']);
+      if (static::$file_info['type'] == "PNG")
+      { // PNG alpha help
+        imagealphablending($tempImage, true);
+        $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
+        imagefill($tempImage, 0, 0, $transparent);
       }
-      catch (Exception $e)
+      ImageCopy($tempImage, static::$image_resource, 0, 0, 0, 0, static::$file_info['width'], static::$file_info['height']);
+      ImageDestroy(static::$image_resource);
+      // new resource
+      static::$image_resource = ImageCreateTruecolor($width, $height);
+      if (static::$file_info['type'] == "PNG")
+      { // PNG alpha help
+        imagealphablending(static::$image_resource, false);
+        $transparent = imagecolorallocatealpha(static::$image_resource, 0, 0, 0, 127);
+        imagefill(static::$image_resource, 0, 0, $transparent);
+      }
+      imagecopy(static::$image_resource, $tempImage, 0, 0, $posX, $posY, $width, $height);
+      if (static::$file_info['type'] == "PNG")
       {
-        self::showError($e);
+        // alphabelinding false for savealpha
+        imagealphablending(static::$image_resource, false);
+        // save alpha
+        imagesavealpha(static::$image_resource, true);
       }
+      ImageDestroy($tempImage);
+      static::$file_info['width'] = $width;
+      static::$file_info['height'] = $height;
+      static::$file_info['attr'] = 'width="' . $width . '" height="' . $height . '"';
     }
     return $this;
   }
@@ -396,83 +375,74 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
+      $cutX = 0;
+      $cutY = 0;
+      switch ($pos)
       {
-        // positionen an denen Geschnitten wird
-        // Linke obere Ecke, default bei case 1
-        $cutX = 0;
-        $cutY = 0;
-        switch ($pos)
-        {
-          case static::NW:
-          case static::FN:
-          case static::FW:
-            // default 0 0
-            break;
+        case static::NW:
+        case static::FN:
+        case static::FW:
+          // default 0 0
+          break;
 
-          case static::N:
-            // N
-            $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
-            break;
+        case static::N:
+          // N
+          $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
+          break;
 
-          case static::NE:
-            // NE
-            $cutX = static::$file_info['width'] - $width;
-            break;
+        case static::NE:
+          // NE
+          $cutX = static::$file_info['width'] - $width;
+          break;
 
-          case static::W:
-            // W
-            $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
-            break;
+        case static::W:
+          // W
+          $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
+          break;
 
-          case static::M:
-            // M
-            $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
-            $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
-            break;
+        case static::M:
+          // M
+          $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
+          $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
+          break;
 
-          case static::E:
-            // E
-            $cutX = static::$file_info['width'] - $width;
-            $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
-            break;
+        case static::E:
+          // E
+          $cutX = static::$file_info['width'] - $width;
+          $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
+          break;
 
-          case static::SW:
-            // SW
-            $cutY = static::$file_info['height'] - $height;
-            break;
+        case static::SW:
+          // SW
+          $cutY = static::$file_info['height'] - $height;
+          break;
 
-          case static::S:
-            // S
-            $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
-            $cutY = static::$file_info['height'] - $height;
-            break;
+        case static::S:
+          // S
+          $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
+          $cutY = static::$file_info['height'] - $height;
+          break;
 
-          case static::SE:
-            // SE
-            $cutX = static::$file_info['width'] - $width;
-            $cutY = static::$file_info['height'] - $height;
-            break;
+        case static::SE:
+          // SE
+          $cutX = static::$file_info['width'] - $width;
+          $cutY = static::$file_info['height'] - $height;
+          break;
 
-          case static::F:
-            // F
-            $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
-            $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
-            break;
+        case static::F:
+          // F
+          $cutX = round((static::$file_info['width'] / 2) - ($width / 2));
+          $cutY = round((static::$file_info['height'] / 2) - ($height / 2));
+          break;
 
-          case static::FE:
-          case static::FS:
-            // FE FS
-            $cutX = static::$file_info['width'] - $width;
-            $cutY = static::$file_info['height'] - $height;
-            break;
-        }
-        $this->cut($width, $height, $cutX, $cutY);
+        case static::FE:
+        case static::FS:
+          // FE FS
+          $cutX = static::$file_info['width'] - $width;
+          $cutY = static::$file_info['height'] - $height;
+          break;
       }
-      catch (Exception $e)
-      {
-        Error::exception($e);
-      }
+      $this->cut($width, $height, $cutX, $cutY);
     }
     return $this;
   }
@@ -530,52 +500,45 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
+      $resizeAfterCut = false;
+      // If $pos >= 10, cut from fullimage
+      if ($pos >= 10)
       {
-        $resizeAfterCut = false;
-        // If $pos >= 10, cut from fullimage
-        if ($pos >= 10)
+        if (static::$file_info['width'] > static::$file_info['height'])
         {
-          if (static::$file_info['width'] > static::$file_info['height'])
-          {
-            $width = static::$file_info['height'];
-            $height = static::$file_info['height'];
-          }
-          elseif (static::$file_info['width'] < static::$file_info['height'])
-          {
-            $width = static::$file_info['width'];
-            $height = static::$file_info['width'];
-          }
-          else
-          {
-            $width = static::$file_info['width'];
-            $height = static::$file_info['height'];
-          }
-          if (!is_null($size))
-          {
-            $resizeAfterCut = true;
-          }
+          $width = static::$file_info['height'];
+          $height = static::$file_info['height'];
         }
-        elseif ($pos < 10 && is_null($size))
-        { // No size, cut the image from 3x3 fields
-          $width = round(static::$file_info['width'] / 3);
-          $height = round(static::$file_info['height'] / 3);
+        elseif (static::$file_info['width'] < static::$file_info['height'])
+        {
+          $width = static::$file_info['width'];
+          $height = static::$file_info['width'];
         }
         else
         {
-          $width = $size;
-          $height = $size;
+          $width = static::$file_info['width'];
+          $height = static::$file_info['height'];
         }
-        // Cutting
-        $this->cutout($width, $height, $pos);
-        if ($resizeAfterCut)
-        { // resizing
-          $this->resize($size);
+        if (!is_null($size))
+        {
+          $resizeAfterCut = true;
         }
       }
-      catch (Exception $e)
+      elseif ($pos < 10 && is_null($size))
+      { // No size, cut the image from 3x3 fields
+        $width = round(static::$file_info['width'] / 3);
+        $height = round(static::$file_info['height'] / 3);
+      }
+      else
       {
-        Error::exception($e);
+        $width = $size;
+        $height = $size;
+      }
+      // Cutting
+      $this->cutout($width, $height, $pos);
+      if ($resizeAfterCut)
+      { // resizing
+        $this->resize($size);
       }
     }
     return $this;
@@ -616,54 +579,47 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
-      {
-        if (!is_null($size))
-        { // if no new size is given, we increase the size of the original to fit
-          $abzug = (static::$file_info['width'] > static::$file_info['height']) ? ($borderTopLeftRight * 2) : ($borderTopLeftRight + $borderBottom);
-          $this->resize($size - $abzug);
-        }
-        $polaroidWidth = static::$file_info['width'] + ($borderTopLeftRight * 2);
-        $polaroidHeight = static::$file_info['height'] + $borderTopLeftRight + $borderBottom;
-        // pos for the image inside the polaroid
-        $imagePosX = ($polaroidWidth - static::$file_info['width']) / 2;
-        $imagePosY = ($polaroidWidth - static::$file_info['width']) / 2;
-        // temp image
-        $tempImage = ImageCreateTruecolor($polaroidWidth, $polaroidHeight);
-        $background_color = imagecolorallocate($tempImage, $polaroidColor[0], $polaroidColor[1], $polaroidColor[2]);
-        imagefill($tempImage, 0, 0, $background_color);
-        // image border
-        // 1px with $polaroidColor as background
-        $frameColor = imagecolorallocate($tempImage, $bordercolor[0], $bordercolor[1], $bordercolor[2]);
-        imagefilledrectangle($tempImage, $imagePosX - 1, $imagePosY - 1, $imagePosX + static::$file_info['width'], $imagePosY + static::$file_info['height'], $frameColor);
-        imagefilledrectangle($tempImage, $imagePosX, $imagePosY, $imagePosX + static::$file_info['width'] - 1, $imagePosY + static::$file_info['height'] - 1, $background_color);
-        // copy our image inside the polaroid
-        imagecopy($tempImage, static::$image_resource, $imagePosX, $imagePosY, 0, 0, static::$file_info['width'], static::$file_info['height']);
-
-        ImageDestroy(static::$image_resource);
-        // new resource
-        static::$image_resource = ImageCreateTruecolor($polaroidWidth, $polaroidHeight);
-        if (static::$file_info['type'] == "PNG")
-        { // we dont want to lose transpancy, this gives cool effects with colored polaroids :)
-          imagealphablending(static::$image_resource, true);
-          imagesavealpha(static::$image_resource, false);
-          $transparent = imagecolorallocatealpha(static::$image_resource, 0, 0, 0, 127);
-          imagefill(static::$image_resource, 0, 0, $transparent);
-        }
-
-        imagecopy(static::$image_resource, $tempImage, 0, 0, 0, 0, $polaroidWidth, $polaroidHeight);
-        ImageDestroy($tempImage);
-        // hold the position from the "white" field, to maybe write text into it.
-        static::$text_pos_x = $imagePosX;
-        static::$text_pos_y = $imagePosY + static::$file_info['height'] + 2;
-        static::$file_info['width'] = $polaroidWidth;
-        static::$file_info['height'] = $polaroidHeight;
-        static::$file_info['attr'] = 'width="' . $polaroidWidth . '" height="' . $polaroidHeight . '"';
+      if (!is_null($size))
+      { // if no new size is given, we increase the size of the original to fit
+        $abzug = (static::$file_info['width'] > static::$file_info['height']) ? ($borderTopLeftRight * 2) : ($borderTopLeftRight + $borderBottom);
+        $this->resize($size - $abzug);
       }
-      catch (Exception $e)
-      {
-        Error::exception($e);
+      $polaroidWidth = static::$file_info['width'] + ($borderTopLeftRight * 2);
+      $polaroidHeight = static::$file_info['height'] + $borderTopLeftRight + $borderBottom;
+      // pos for the image inside the polaroid
+      $imagePosX = ($polaroidWidth - static::$file_info['width']) / 2;
+      $imagePosY = ($polaroidWidth - static::$file_info['width']) / 2;
+      // temp image
+      $tempImage = ImageCreateTruecolor($polaroidWidth, $polaroidHeight);
+      $background_color = imagecolorallocate($tempImage, $polaroidColor[0], $polaroidColor[1], $polaroidColor[2]);
+      imagefill($tempImage, 0, 0, $background_color);
+      // image border
+      // 1px with $polaroidColor as background
+      $frameColor = imagecolorallocate($tempImage, $bordercolor[0], $bordercolor[1], $bordercolor[2]);
+      imagefilledrectangle($tempImage, $imagePosX - 1, $imagePosY - 1, $imagePosX + static::$file_info['width'], $imagePosY + static::$file_info['height'], $frameColor);
+      imagefilledrectangle($tempImage, $imagePosX, $imagePosY, $imagePosX + static::$file_info['width'] - 1, $imagePosY + static::$file_info['height'] - 1, $background_color);
+      // copy our image inside the polaroid
+      imagecopy($tempImage, static::$image_resource, $imagePosX, $imagePosY, 0, 0, static::$file_info['width'], static::$file_info['height']);
+
+      ImageDestroy(static::$image_resource);
+      // new resource
+      static::$image_resource = ImageCreateTruecolor($polaroidWidth, $polaroidHeight);
+      if (static::$file_info['type'] == "PNG")
+      { // we dont want to lose transpancy, this gives cool effects with colored polaroids :)
+        imagealphablending(static::$image_resource, true);
+        imagesavealpha(static::$image_resource, false);
+        $transparent = imagecolorallocatealpha(static::$image_resource, 0, 0, 0, 127);
+        imagefill(static::$image_resource, 0, 0, $transparent);
       }
+
+      imagecopy(static::$image_resource, $tempImage, 0, 0, 0, 0, $polaroidWidth, $polaroidHeight);
+      ImageDestroy($tempImage);
+      // hold the position from the "white" field, to maybe write text into it.
+      static::$text_pos_x = $imagePosX;
+      static::$text_pos_y = $imagePosY + static::$file_info['height'] + 2;
+      static::$file_info['width'] = $polaroidWidth;
+      static::$file_info['height'] = $polaroidHeight;
+      static::$file_info['attr'] = 'width="' . $polaroidWidth . '" height="' . $polaroidHeight . '"';
     }
     return $this;
   }
@@ -691,22 +647,15 @@ class Imwg
 
     if (static::$image_resource && !is_null($message))
     {
-      try
+      $color = imagecolorallocate(static::$image_resource, $color[0], $color[1], $color[2]);
+      (!is_bool($shadowColor)) ? $shadow = imagecolorallocate(static::$image_resource, $shadowColor[0], $shadowColor[1], $shadowColor[2]) : "";
+      $messageArray = explode("\n", $message);
+      $y = 0;
+      for ($i = 0; $i < count($messageArray); $i++)
       {
-        $color = imagecolorallocate(static::$image_resource, $color[0], $color[1], $color[2]);
-        (!is_bool($shadowColor)) ? $shadow = imagecolorallocate(static::$image_resource, $shadowColor[0], $shadowColor[1], $shadowColor[2]) : "";
-        $messageArray = explode("\n", $message);
-        $y = 0;
-        for ($i = 0; $i < count($messageArray); $i++)
-        {
-          imagestring(static::$image_resource, $fontType, $posX, $posY + $y, $messageArray[$i], $color);
-          (!is_bool($shadowColor)) ? imagestring(static::$image_resource, $fontType, $posX + 1, $posY + 1 + $y, $messageArray[$i], $shadow) : "";
-          $y += imagefontheight($fontType);
-        }
-      }
-      catch (Exception $e)
-      {
-        Error::exception($e);
+        imagestring(static::$image_resource, $fontType, $posX, $posY + $y, $messageArray[$i], $color);
+        (!is_bool($shadowColor)) ? imagestring(static::$image_resource, $fontType, $posX + 1, $posY + 1 + $y, $messageArray[$i], $shadow) : "";
+        $y += imagefontheight($fontType);
       }
     }
     return $this;
@@ -738,42 +687,35 @@ class Imwg
       $fontFile = static::$settings['ttf_font'];
 
     if (static::$image_resource && !is_null($message) && File::exists($fontFile))
-    {
-      try
-      { // split the message on newline
-        $text = explode("\\n", $message);
-        if (is_array($text))
-        {
-          for ($i = 0; $i < count($text); $i++)
-          {
-            $pX = $posX;
-            $pY = $posY;
-            $textBox = static::calculateTextBox($fontSize, $rotate, $fontFile, $text[$i]);
-            if ($center)
-            { // centered horizontal
-              $pX = (static::$file_info['width'] - $textBox['width']) / 2;
-            }
-            if ($middle)
-            { // centered vertical
-              $pY = ((static::$file_info['height'] - $textBox['height']) / 2) + ($i * $textBox['height']);
-            }
-            else
-            {
-              $pY = $posY + $i * $textBox['height'];
-            }
-            if (static::$file_info['type'] == "PNG")
-            { // Help for PNG Alpha
-              imagealphablending(static::$image_resource, true);
-              imagesavealpha(static::$image_resource, true);
-            }
-            $color = imagecolorallocate(static::$image_resource, $color[0], $color[1], $color[2]);
-            ImageTTFText(static::$image_resource, $fontSize, $rotate, $pX, $pY + $fontSize + 4, $color, $fontFile, $text[$i]);
-          }
-        }
-      }
-      catch (Exception $e)
+    {// split the message on newline
+      $text = explode("\\n", $message);
+      if (is_array($text))
       {
-        Error::exception($e);
+        for ($i = 0; $i < count($text); $i++)
+        {
+          $pX = $posX;
+          $pY = $posY;
+          $textBox = static::calculateTextBox($fontSize, $rotate, $fontFile, $text[$i]);
+          if ($center)
+          { // centered horizontal
+            $pX = (static::$file_info['width'] - $textBox['width']) / 2;
+          }
+          if ($middle)
+          { // centered vertical
+            $pY = ((static::$file_info['height'] - $textBox['height']) / 2) + ($i * $textBox['height']);
+          }
+          else
+          {
+            $pY = $posY + $i * $textBox['height'];
+          }
+          if (static::$file_info['type'] == "PNG")
+          { // Help for PNG Alpha
+            imagealphablending(static::$image_resource, true);
+            imagesavealpha(static::$image_resource, true);
+          }
+          $color = imagecolorallocate(static::$image_resource, $color[0], $color[1], $color[2]);
+          ImageTTFText(static::$image_resource, $fontSize, $rotate, $pX, $pY + $fontSize + 4, $color, $fontFile, $text[$i]);
+        }
       }
     }
     return $this;
@@ -834,177 +776,170 @@ class Imwg
     {
       if (File::exists($imageWatermark))
       {
-        try
+        $watermarkInfo = static::image_info($imageWatermark);
+        if ($watermarkInfo['type'] == "PNG")
         {
-          $watermarkInfo = static::image_info($imageWatermark);
-          if ($watermarkInfo['type'] == "PNG")
-          {
-            $oWatermark = imagecreatefrompng($imageWatermark);
-          }
-          elseif ($watermarkInfo['type'] == "JPG")
-          {
-            $oWatermark = imagecreatefromjpeg($imageWatermark);
-          }
-          elseif ($watermarkInfo['type'] == "GIF")
-          {
-            $oWatermark = imagecreatefromgif($imageWatermark);
-          }
-          elseif ($watermarkInfo['type'] == "BMP")
-          { // just a try, no idea if it works ^_^
-            $oWatermark = Bmp2jpg::make($imageWatermark);
-          }
-          $watermarkWidth = $watermarkInfo['width'];
-          $watermarkHeight = $watermarkInfo['height'];
-          $fieldWidth = round(static::$file_info['width'] / 3);
-          $fieldHeight = round(static::$file_info['height'] / 3);
-          // if $pos >= 10, calculate from full image
-          // size of a field is (imagesize / 3)
-          if ($pos >= 10)
-          {
-            $ratioW = static::$file_info['width'] / $watermarkWidth;
-            $ratioH = static::$file_info['height'] / $watermarkHeight;
-          }
-          else
-          {
-            $ratioW = $fieldWidth / $watermarkWidth;
-            $ratioH = $fieldHeight / $watermarkHeight;
-          }
-          // Calculate the new watermark size
-          if ($ratioW < $ratioH)
-          {
-            $newWatermarkWidth = round($watermarkWidth * $ratioW);
-            $newWatermarkHeight = round($watermarkHeight * $ratioW);
-          }
-          else
-          {
-            $newWatermarkWidth = round($watermarkWidth * $ratioH);
-            $newWatermarkHeight = round($watermarkHeight * $ratioH);
-          }
-          // additional px for the watermark to fit the full image
-          $xBonus = 0;
-          $yBonus = 0;
-          if ($pos >= 10)
-          {
-            if (static::$file_info['width'] > $newWatermarkWidth)
-            {
-              $xBonus = round((static::$file_info['width'] - $newWatermarkWidth) / 2);
-            }
-            if (static::$file_info['height'] > $newWatermarkHeight)
-            {
-              $yBonus = round((static::$file_info['height'] - $newWatermarkHeight) / 2);
-            }
-          }
-          // additional px for the watermark to fit a image field
-          else
-          {
-            if ($fieldWidth > $newWatermarkWidth)
-            {
-              $xBonus = round(($fieldWidth - $newWatermarkWidth) / 2);
-            }
-            if ($fieldHeight > $newWatermarkHeight)
-            {
-              $yBonus = round(($fieldHeight - $newWatermarkHeight) / 2);
-            }
-          }
-          $wPointX = $xBonus;
-          $wPointY = $yBonus;
-          switch ($pos)
-          {
-            case 1:
-            case 10:
-            case 11:
-            case 12:
-              // default top left corner
-              break;
-
-            case 2:
-              // N
-              $wPointX += $fieldWidth;
-              break;
-
-            case 3:
-              // NE
-              $wPointX += $fieldWidth * 2;
-              break;
-
-            case 4:
-              // W
-              $wPointY += $fieldHeight;
-              break;
-
-            case 5:
-              // M
-              $wPointX += $fieldWidth;
-              $wPointY += $fieldHeight;
-              break;
-
-            case 6:
-              // E
-              $wPointX += $fieldWidth * 2;
-              $wPointY += $fieldHeight;
-              break;
-
-            case 7:
-              // SW
-              $wPointY += $fieldHeight * 2;
-              break;
-
-            case 8:
-              // S
-              $wPointX += $fieldWidth;
-              $wPointY += $fieldHeight * 2;
-              break;
-
-            case 9:
-              // SE
-              $wPointX += $fieldWidth * 2;
-              $wPointY += $fieldHeight * 2;
-              break;
-          }
-          // Alot of create and copy, but this is the only way i get alpha
-          // to work... any ideas? mr. wise guy? ^_^
-          // create a new watermark
-          $tempImage = ImageCreateTruecolor($newWatermarkWidth, $newWatermarkHeight);
-          // enable alpha
-          imagealphablending($tempImage, true);
-          $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
-          imagefill($tempImage, 0, 0, $transparent);
-          ImageCopyResampled($tempImage, $oWatermark, 0, 0, 0, 0, $newWatermarkWidth, $newWatermarkHeight, $watermarkWidth, $watermarkHeight);
-          ImageDestroy($oWatermark);
-          // update resource of watermark
-          $oWatermark = ImageCreateTruecolor($newWatermarkWidth, $newWatermarkHeight);
-          // enable alpha
-          imagealphablending($oWatermark, true);
-          imagesavealpha($oWatermark, false);
-          $transparent = imagecolorallocatealpha($oWatermark, 0, 0, 0, 127);
-          imagefill($oWatermark, 0, 0, $transparent);
-          imagecopy($oWatermark, $tempImage, 0, 0, 0, 0, $newWatermarkWidth, $newWatermarkHeight);
-          // disable alpha to save it
-          imagealphablending($oWatermark, false);
-          // save alpha
-          imagesavealpha($oWatermark, true);
-          ImageDestroy($tempImage);
-          // new image
-          $tempImage = imagecreatetruecolor(static::$file_info['width'], static::$file_info['height']);
-          // enable alpha
-          imagealphablending($tempImage, true);
-          $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
-          imagefill($tempImage, 0, 0, $transparent);
-          // copy image to temp
-          imagecopyresampled($tempImage, static::$image_resource, 0, 0, 0, 0, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], static::$file_info['height']);
-          // copy watermark to temp
-          imagecopyresampled($tempImage, $oWatermark, $wPointX, $wPointY, 0, 0, $newWatermarkWidth, $newWatermarkHeight, $newWatermarkWidth, $newWatermarkHeight);
-          // disable alpha for saving
-          imagealphablending($tempImage, false);
-          // save alpha
-          imagesavealpha($tempImage, true);
-          imagedestroy(static::$image_resource);
-          static::$image_resource = $tempImage;
+          $oWatermark = imagecreatefrompng($imageWatermark);
         }
-        catch (Exception $e)
+        elseif ($watermarkInfo['type'] == "JPG")
         {
-          Error::exception($e);
+          $oWatermark = imagecreatefromjpeg($imageWatermark);
         }
+        elseif ($watermarkInfo['type'] == "GIF")
+        {
+          $oWatermark = imagecreatefromgif($imageWatermark);
+        }
+        elseif ($watermarkInfo['type'] == "BMP")
+        { // just a try, no idea if it works ^_^
+          $oWatermark = Bmp2jpg::make($imageWatermark);
+        }
+        $watermarkWidth = $watermarkInfo['width'];
+        $watermarkHeight = $watermarkInfo['height'];
+        $fieldWidth = round(static::$file_info['width'] / 3);
+        $fieldHeight = round(static::$file_info['height'] / 3);
+        // if $pos >= 10, calculate from full image
+        // size of a field is (imagesize / 3)
+        if ($pos >= 10)
+        {
+          $ratioW = static::$file_info['width'] / $watermarkWidth;
+          $ratioH = static::$file_info['height'] / $watermarkHeight;
+        }
+        else
+        {
+          $ratioW = $fieldWidth / $watermarkWidth;
+          $ratioH = $fieldHeight / $watermarkHeight;
+        }
+        // Calculate the new watermark size
+        if ($ratioW < $ratioH)
+        {
+          $newWatermarkWidth = round($watermarkWidth * $ratioW);
+          $newWatermarkHeight = round($watermarkHeight * $ratioW);
+        }
+        else
+        {
+          $newWatermarkWidth = round($watermarkWidth * $ratioH);
+          $newWatermarkHeight = round($watermarkHeight * $ratioH);
+        }
+        // additional px for the watermark to fit the full image
+        $xBonus = 0;
+        $yBonus = 0;
+        if ($pos >= 10)
+        {
+          if (static::$file_info['width'] > $newWatermarkWidth)
+          {
+            $xBonus = round((static::$file_info['width'] - $newWatermarkWidth) / 2);
+          }
+          if (static::$file_info['height'] > $newWatermarkHeight)
+          {
+            $yBonus = round((static::$file_info['height'] - $newWatermarkHeight) / 2);
+          }
+        }
+        // additional px for the watermark to fit a image field
+        else
+        {
+          if ($fieldWidth > $newWatermarkWidth)
+          {
+            $xBonus = round(($fieldWidth - $newWatermarkWidth) / 2);
+          }
+          if ($fieldHeight > $newWatermarkHeight)
+          {
+            $yBonus = round(($fieldHeight - $newWatermarkHeight) / 2);
+          }
+        }
+        $wPointX = $xBonus;
+        $wPointY = $yBonus;
+        switch ($pos)
+        {
+          case 1:
+          case 10:
+          case 11:
+          case 12:
+            // default top left corner
+            break;
+
+          case 2:
+            // N
+            $wPointX += $fieldWidth;
+            break;
+
+          case 3:
+            // NE
+            $wPointX += $fieldWidth * 2;
+            break;
+
+          case 4:
+            // W
+            $wPointY += $fieldHeight;
+            break;
+
+          case 5:
+            // M
+            $wPointX += $fieldWidth;
+            $wPointY += $fieldHeight;
+            break;
+
+          case 6:
+            // E
+            $wPointX += $fieldWidth * 2;
+            $wPointY += $fieldHeight;
+            break;
+
+          case 7:
+            // SW
+            $wPointY += $fieldHeight * 2;
+            break;
+
+          case 8:
+            // S
+            $wPointX += $fieldWidth;
+            $wPointY += $fieldHeight * 2;
+            break;
+
+          case 9:
+            // SE
+            $wPointX += $fieldWidth * 2;
+            $wPointY += $fieldHeight * 2;
+            break;
+        }
+        // Alot of create and copy, but this is the only way i get alpha
+        // to work... any ideas? mr. wise guy? ^_^
+        // create a new watermark
+        $tempImage = ImageCreateTruecolor($newWatermarkWidth, $newWatermarkHeight);
+        // enable alpha
+        imagealphablending($tempImage, true);
+        $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
+        imagefill($tempImage, 0, 0, $transparent);
+        ImageCopyResampled($tempImage, $oWatermark, 0, 0, 0, 0, $newWatermarkWidth, $newWatermarkHeight, $watermarkWidth, $watermarkHeight);
+        ImageDestroy($oWatermark);
+        // update resource of watermark
+        $oWatermark = ImageCreateTruecolor($newWatermarkWidth, $newWatermarkHeight);
+        // enable alpha
+        imagealphablending($oWatermark, true);
+        imagesavealpha($oWatermark, false);
+        $transparent = imagecolorallocatealpha($oWatermark, 0, 0, 0, 127);
+        imagefill($oWatermark, 0, 0, $transparent);
+        imagecopy($oWatermark, $tempImage, 0, 0, 0, 0, $newWatermarkWidth, $newWatermarkHeight);
+        // disable alpha to save it
+        imagealphablending($oWatermark, false);
+        // save alpha
+        imagesavealpha($oWatermark, true);
+        ImageDestroy($tempImage);
+        // new image
+        $tempImage = imagecreatetruecolor(static::$file_info['width'], static::$file_info['height']);
+        // enable alpha
+        imagealphablending($tempImage, true);
+        $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
+        imagefill($tempImage, 0, 0, $transparent);
+        // copy image to temp
+        imagecopyresampled($tempImage, static::$image_resource, 0, 0, 0, 0, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], static::$file_info['height']);
+        // copy watermark to temp
+        imagecopyresampled($tempImage, $oWatermark, $wPointX, $wPointY, 0, 0, $newWatermarkWidth, $newWatermarkHeight, $newWatermarkWidth, $newWatermarkHeight);
+        // disable alpha for saving
+        imagealphablending($tempImage, false);
+        // save alpha
+        imagesavealpha($tempImage, true);
+        imagedestroy(static::$image_resource);
+        static::$image_resource = $tempImage;
       }
     }
     return $this;
@@ -1022,27 +957,20 @@ class Imwg
     (is_null($bgcolor)) ? $bgcolor = "-1" : "";
     if (static::$image_resource)
     {
-      try
+      if (is_array($bgcolor))
       {
-        if (is_array($bgcolor))
-        {
-          $bgcolor = imagecolorallocate(static::$image_resource, $bgcolor[0], $bgcolor[1], $bgcolor[2]);
-        }
-        static::$image_resource = imagerotate(static::$image_resource, $degrees, $bgcolor);
-        if (static::$file_info['type'] == "PNG")
-        {
-          // disable alpha for save
-          imagealphablending(static::$image_resource, false);
-          imagesavealpha(static::$image_resource, true);
-        }
-        static::$file_info['width'] = imagesx(static::$image_resource);
-        static::$file_info['height'] = imagesy(static::$image_resource);
-        static::$file_info['attr'] = 'width="' . static::$file_info['width'] . '" height="' . static::$file_info['height'] . '"';
+        $bgcolor = imagecolorallocate(static::$image_resource, $bgcolor[0], $bgcolor[1], $bgcolor[2]);
       }
-      catch (Exception $e)
+      static::$image_resource = imagerotate(static::$image_resource, $degrees, $bgcolor);
+      if (static::$file_info['type'] == "PNG")
       {
-        Error::exception($e);
+        // disable alpha for save
+        imagealphablending(static::$image_resource, false);
+        imagesavealpha(static::$image_resource, true);
       }
+      static::$file_info['width'] = imagesx(static::$image_resource);
+      static::$file_info['height'] = imagesy(static::$image_resource);
+      static::$file_info['attr'] = 'width="' . static::$file_info['width'] . '" height="' . static::$file_info['height'] . '"';
     }
     return $this;
   }
@@ -1058,57 +986,50 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
-      {
-        $shadowHeight = round($reflectionSize / 5);
-        // Create the new image
-        $tempImg = imagecreatetruecolor(static::$file_info['width'], static::$file_info['height'] + $reflectionSize);
-        if (static::$file_info['type'] == "PNG")
-        { // Help PNG Alpha
-          imagealphablending($tempImg, true);
-          imagesavealpha($tempImg, false);
-          $transparent = imagecolorallocatealpha($tempImg, 0, 0, 0, 127);
-          imagefill($tempImg, 0, 0, $transparent);
-        }
-        else
-        { // or create the background
-          $background = imagecolorallocate($tempImg, $bgcolor[0], $bgcolor[1], $bgcolor[2]);
-          imagefill($tempImg, 0, 0, $background);
-        }
-        // copy the source
-        imagecopy($tempImg, static::$image_resource, 0, 0, 0, 0, static::$file_info['width'], static::$file_info['height']);
-        // flip the source
-        imagecopyresampled(static::$image_resource, $tempImg, 0, 0, 0, static::$file_info['height'] - 1, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], -static::$file_info['height']);
-        // merge the images
-        imagecopy($tempImg, static::$image_resource, 0, static::$file_info['height'], 0, 0, static::$file_info['width'], static::$file_info['height']);
-        // create the reflection
-        $alpha = 60 / ($reflectionSize - 1);
-        for ($i = 0; $i < $reflectionSize; $i++)
-        {
-          $col = imagecolorallocatealpha($tempImg, $bgcolor[0], $bgcolor[1], $bgcolor[2], 60 - $i * $alpha);
-          imageline($tempImg, 0, static::$file_info['height'] + $i, static::$file_info['width'], static::$file_info['height'] + $i, $col);
-        }
-        // Create the shadow
-        $alphaF = 60 / ($shadowHeight - 1);
-        for ($i = 0; $i < $shadowHeight; $i++)
-        {
-          $shadowColor = imagecolorallocatealpha($tempImg, 160, 160, 160, $i * $alphaF + 67);
-          imageline($tempImg, 0, static::$file_info['height'] + $i, static::$file_info['width'], static::$file_info['height'] + $i, $shadowColor);
-        }
-        if (static::$file_info['type'] == "PNG")
-        { // PNG Alpha
-          imagealphablending($tempImg, false);
-          imagesavealpha($tempImg, true);
-        }
-        imagedestroy(static::$image_resource);
-        static::$image_resource = $tempImg;
-        static::$file_info['height'] += $reflectionSize;
-        static::$file_info['attr'] = 'width="' . static::$file_info['width'] . '" height="' . static::$file_info['height'] . '"';
+      $shadowHeight = round($reflectionSize / 5);
+      // Create the new image
+      $tempImg = imagecreatetruecolor(static::$file_info['width'], static::$file_info['height'] + $reflectionSize);
+      if (static::$file_info['type'] == "PNG")
+      { // Help PNG Alpha
+        imagealphablending($tempImg, true);
+        imagesavealpha($tempImg, false);
+        $transparent = imagecolorallocatealpha($tempImg, 0, 0, 0, 127);
+        imagefill($tempImg, 0, 0, $transparent);
       }
-      catch (Exception $e)
-      {
-        Error::exception($e);
+      else
+      { // or create the background
+        $background = imagecolorallocate($tempImg, $bgcolor[0], $bgcolor[1], $bgcolor[2]);
+        imagefill($tempImg, 0, 0, $background);
       }
+      // copy the source
+      imagecopy($tempImg, static::$image_resource, 0, 0, 0, 0, static::$file_info['width'], static::$file_info['height']);
+      // flip the source
+      imagecopyresampled(static::$image_resource, $tempImg, 0, 0, 0, static::$file_info['height'] - 1, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], -static::$file_info['height']);
+      // merge the images
+      imagecopy($tempImg, static::$image_resource, 0, static::$file_info['height'], 0, 0, static::$file_info['width'], static::$file_info['height']);
+      // create the reflection
+      $alpha = 60 / ($reflectionSize - 1);
+      for ($i = 0; $i < $reflectionSize; $i++)
+      {
+        $col = imagecolorallocatealpha($tempImg, $bgcolor[0], $bgcolor[1], $bgcolor[2], 60 - $i * $alpha);
+        imageline($tempImg, 0, static::$file_info['height'] + $i, static::$file_info['width'], static::$file_info['height'] + $i, $col);
+      }
+      // Create the shadow
+      $alphaF = 60 / ($shadowHeight - 1);
+      for ($i = 0; $i < $shadowHeight; $i++)
+      {
+        $shadowColor = imagecolorallocatealpha($tempImg, 160, 160, 160, $i * $alphaF + 67);
+        imageline($tempImg, 0, static::$file_info['height'] + $i, static::$file_info['width'], static::$file_info['height'] + $i, $shadowColor);
+      }
+      if (static::$file_info['type'] == "PNG")
+      { // PNG Alpha
+        imagealphablending($tempImg, false);
+        imagesavealpha($tempImg, true);
+      }
+      imagedestroy(static::$image_resource);
+      static::$image_resource = $tempImg;
+      static::$file_info['height'] += $reflectionSize;
+      static::$file_info['attr'] = 'width="' . static::$file_info['width'] . '" height="' . static::$file_info['height'] . '"';
     }
     return $this;
   }
@@ -1131,43 +1052,36 @@ class Imwg
         $transparent = imagecolorallocatealpha($tempImage, 0, 0, 0, 127);
         imagefill($tempImage, 0, 0, $transparent);
       }
-      try
+      switch (strtolower($type))
       {
-        switch (strtolower($type))
-        {
-          case "h":
-          case "horizontal":
-            imagecopyresampled($tempImage, static::$image_resource, 0, 0, static::$file_info['width'] - 1, 0, static::$file_info['width'], static::$file_info['height'], -static::$file_info['width'], static::$file_info['height']);
-            break;
-          case "v":
-          case "vertical":
-            imagecopyresampled($tempImage, static::$image_resource, 0, 0, 0, static::$file_info['height'] - 1, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], -static::$file_info['height']);
-            break;
-          default: //both
-            $tempImage2 = imagecreatetruecolor(static::$file_info['width'], static::$file_info['height']);
-            if (static::$file_info['type'] == "PNG")
-            { // PNG Alpha
-              imagealphablending($tempImage2, true);
-              imagesavealpha($tempImage2, false);
-              $transparent = imagecolorallocatealpha($tempImage2, 0, 0, 0, 127);
-              imagefill($tempImage2, 0, 0, $transparent);
-            }
-            imagecopyresampled($tempImage2, static::$image_resource, 0, 0, static::$file_info['width'] - 1, 0, static::$file_info['width'], static::$file_info['height'], -static::$file_info['width'], static::$file_info['height']);
-            imagecopyresampled($tempImage, $tempImage2, 0, 0, 0, static::$file_info['height'] - 1, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], -static::$file_info['height']);
-            imagedestroy($tempImage2);
-        }
-        if (static::$file_info['type'] == "PNG")
-        { // PNG Alpha
-          imagealphablending($tempImage, false);
-          imagesavealpha($tempImage, true);
-        }
-        imagedestroy(static::$image_resource);
-        static::$image_resource = $tempImage;
+        case "h":
+        case "horizontal":
+          imagecopyresampled($tempImage, static::$image_resource, 0, 0, static::$file_info['width'] - 1, 0, static::$file_info['width'], static::$file_info['height'], -static::$file_info['width'], static::$file_info['height']);
+          break;
+        case "v":
+        case "vertical":
+          imagecopyresampled($tempImage, static::$image_resource, 0, 0, 0, static::$file_info['height'] - 1, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], -static::$file_info['height']);
+          break;
+        default: //both
+          $tempImage2 = imagecreatetruecolor(static::$file_info['width'], static::$file_info['height']);
+          if (static::$file_info['type'] == "PNG")
+          { // PNG Alpha
+            imagealphablending($tempImage2, true);
+            imagesavealpha($tempImage2, false);
+            $transparent = imagecolorallocatealpha($tempImage2, 0, 0, 0, 127);
+            imagefill($tempImage2, 0, 0, $transparent);
+          }
+          imagecopyresampled($tempImage2, static::$image_resource, 0, 0, static::$file_info['width'] - 1, 0, static::$file_info['width'], static::$file_info['height'], -static::$file_info['width'], static::$file_info['height']);
+          imagecopyresampled($tempImage, $tempImage2, 0, 0, 0, static::$file_info['height'] - 1, static::$file_info['width'], static::$file_info['height'], static::$file_info['width'], -static::$file_info['height']);
+          imagedestroy($tempImage2);
       }
-      catch (Exception $e)
-      {
-        Error::exception($e);
+      if (static::$file_info['type'] == "PNG")
+      { // PNG Alpha
+        imagealphablending($tempImage, false);
+        imagesavealpha($tempImage, true);
       }
+      imagedestroy(static::$image_resource);
+      static::$image_resource = $tempImage;
     }
     return $this;
   }
@@ -1189,44 +1103,37 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
+      switch ($filter)
       {
-        switch ($filter)
-        {
-          case IMG_FILTER_NEGATE:
-          case IMG_FILTER_GRAYSCALE:
-          case IMG_FILTER_EDGEDETECT:
-          case IMG_FILTER_EMBOSS:
-          case IMG_FILTER_GAUSSIAN_BLUR:
-          case IMG_FILTER_SELECTIVE_BLUR:
-          case IMG_FILTER_MEAN_REMOVAL:
-            imagefilter(static::$image_resource, $filter);
-            break;
+        case IMG_FILTER_NEGATE:
+        case IMG_FILTER_GRAYSCALE:
+        case IMG_FILTER_EDGEDETECT:
+        case IMG_FILTER_EMBOSS:
+        case IMG_FILTER_GAUSSIAN_BLUR:
+        case IMG_FILTER_SELECTIVE_BLUR:
+        case IMG_FILTER_MEAN_REMOVAL:
+          imagefilter(static::$image_resource, $filter);
+          break;
 
-          case IMG_FILTER_BRIGHTNESS:
-          case IMG_FILTER_CONTRAST:
-          case IMG_FILTER_SMOOTH:
-          case IMG_FILTER_PIXELATE:
-            imagefilter(static::$image_resource, $filter, $arg1);
-            break;
+        case IMG_FILTER_BRIGHTNESS:
+        case IMG_FILTER_CONTRAST:
+        case IMG_FILTER_SMOOTH:
+        case IMG_FILTER_PIXELATE:
+          imagefilter(static::$image_resource, $filter, $arg1);
+          break;
 
-          case IMG_FILTER_PIXELATE:
-            imagefilter(static::$image_resource, $filter, $arg1, $arg2);
-            break;
+        case IMG_FILTER_PIXELATE:
+          imagefilter(static::$image_resource, $filter, $arg1, $arg2);
+          break;
 
-          case IMG_FILTER_COLORIZE:
-            imagefilter(static::$image_resource, $filter, $arg1, $arg2, $arg3, $alpha);
-            break;
+        case IMG_FILTER_COLORIZE:
+          imagefilter(static::$image_resource, $filter, $arg1, $arg2, $arg3, $alpha);
+          break;
 
-          default: // Sepia like
-            imagefilter(static::$image_resource, IMG_FILTER_GRAYSCALE);
-            imagefilter(static::$image_resource, IMG_FILTER_COLORIZE, 100, 50, 0);
-            break;
-        }
-      }
-      catch (Exception $e)
-      {
-        Error::exception($e);
+        default: // Sepia like
+          imagefilter(static::$image_resource, IMG_FILTER_GRAYSCALE);
+          imagefilter(static::$image_resource, IMG_FILTER_COLORIZE, 100, 50, 0);
+          break;
       }
     }
     return $this;
@@ -1287,25 +1194,18 @@ class Imwg
    */
   private static function calculateTextBox($fontSize, $fontAngle, $fontFile, $text)
   {
-    try
-    {
-      $rect = imagettfbbox($fontSize, $fontAngle, $fontFile, $text);
-      $minX = min(array($rect[0], $rect[2], $rect[4], $rect[6]));
-      $maxX = max(array($rect[0], $rect[2], $rect[4], $rect[6]));
-      $minY = min(array($rect[1], $rect[3], $rect[5], $rect[7]));
-      $maxY = max(array($rect[1], $rect[3], $rect[5], $rect[7]));
+    $rect = imagettfbbox($fontSize, $fontAngle, $fontFile, $text);
+    $minX = min(array($rect[0], $rect[2], $rect[4], $rect[6]));
+    $maxX = max(array($rect[0], $rect[2], $rect[4], $rect[6]));
+    $minY = min(array($rect[1], $rect[3], $rect[5], $rect[7]));
+    $maxY = max(array($rect[1], $rect[3], $rect[5], $rect[7]));
 
-      return array(
-          "left" => abs($minX) - 1,
-          "top" => abs($minY) - 1,
-          "width" => $maxX - $minX,
-          "height" => $maxY - $minY,
-      );
-    }
-    catch (Exception $e)
-    {
-      Error::exception($e);
-    }
+    return array(
+        "left" => abs($minX) - 1,
+        "top" => abs($minY) - 1,
+        "width" => $maxX - $minX,
+        "height" => $maxY - $minY,
+    );
   }
 
   /**
@@ -1317,37 +1217,30 @@ class Imwg
    */
   public static function image_info($file)
   {
-    try
+    $redefine_keys = array('width', 'height', 'type', 'attr', 'bits', 'channels', 'mime');
+    $types = array(1 => 'GIF', 2 => 'JPG', 3 => 'PNG', 4 => 'SWF', 5 => 'PSD', 6 => 'BMP', 7 => 'TIFF(intel byte order)', 8 => 'TIFF(motorola byte order)', 9 => 'JPC', 10 => 'JP2', 11 => 'JPX', 12 => 'JB2', 13 => 'SWC', 14 => 'IFF', 15 => 'WBMP', 16 => 'XBM');
+    $temp = array();
+    $data = array();
+    $temp = @getimagesize($file);
+    if ($temp === false)
     {
-      $redefine_keys = array('width', 'height', 'type', 'attr', 'bits', 'channels', 'mime');
-      $types = array(1 => 'GIF', 2 => 'JPG', 3 => 'PNG', 4 => 'SWF', 5 => 'PSD', 6 => 'BMP', 7 => 'TIFF(intel byte order)', 8 => 'TIFF(motorola byte order)', 9 => 'JPC', 10 => 'JP2', 11 => 'JPX', 12 => 'JB2', 13 => 'SWC', 14 => 'IFF', 15 => 'WBMP', 16 => 'XBM');
-      $temp = array();
-      $data = array();
-      $temp = @getimagesize($file);
-      if ($temp === false)
-      {
-        throw(new Exception('File ' . $file . ' is not a valid Image.'));
-      }
-      $temp = array_values($temp);
-      foreach ($temp AS $k => $v)
-      {
-        $data[$redefine_keys[$k]] = $v;
-      }
-      $data['type'] = $types[$data['type']];
-
-      if (($data['type'] == "PNG") && !array_key_exists('mime', $data))
-      {
-        $data['mime'] = "image/png";
-      }
-
-      if (!array_key_exists('mime', $data))
-      {
-        $data['mime'] = "image/unknown";
-      }
+      trigger_error('File ' . $file . ' is not a valid Image.', E_USER_ERROR);
     }
-    catch (Exception $e)
+    $temp = array_values($temp);
+    foreach ($temp AS $k => $v)
     {
-      Error::exception($e);
+      $data[$redefine_keys[$k]] = $v;
+    }
+    $data['type'] = $types[$data['type']];
+
+    if (($data['type'] == "PNG") && !array_key_exists('mime', $data))
+    {
+      $data['mime'] = "image/png";
+    }
+
+    if (!array_key_exists('mime', $data))
+    {
+      $data['mime'] = "image/unknown";
     }
     return $data;
   }
@@ -1373,45 +1266,38 @@ class Imwg
   {
     if (static::$image_resource)
     {
-      try
+      if (!File::exists($file_name) || $override)
       {
-        if (!File::exists($file_name) || $override)
+        // JPEG
+        if (static::$file_info['type'] == "JPG")
         {
-          // JPEG
-          if (static::$file_info['type'] == "JPG")
-          {
-            ImageJPEG(static::$image_resource, $file_name, static::$image_quality);
-          }
-          // GIF
-          elseif (static::$file_info['type'] == "GIF")
-          {
-            ImageGIF(static::$image_resource, $file_name);
-          }
-          // PNG
-          elseif (static::$file_info['type'] == "PNG")
-          {
-            ImagePNG(static::$image_resource, $file_name, static::$image_quality);
-          }
+          ImageJPEG(static::$image_resource, $file_name, static::$image_quality);
         }
-        // cache $file_info
-        $file_info = static::$file_info;
-        if ($destroy) // destroy all resources
+        // GIF
+        elseif (static::$file_info['type'] == "GIF")
         {
-          $this->destroy();
+          ImageGIF(static::$image_resource, $file_name);
         }
-        // return the infos about the image
-        return $file_info;
+        // PNG
+        elseif (static::$file_info['type'] == "PNG")
+        {
+          ImagePNG(static::$image_resource, $file_name, static::$image_quality);
+        }
       }
-      catch (Exception $e)
+      // cache $file_info
+      $file_info = static::$file_info;
+      if ($destroy) // destroy all resources
       {
-        Error::exception($e);
+        $this->destroy();
       }
+      // return the infos about the image
+      return $file_info;
     }
   }
 
   /**
    * Displays the image
-   * 
+   * @param bool $header true sends the imageheader
    */
   public function display($header = true)
   {
@@ -1424,7 +1310,7 @@ class Imwg
           if (!headers_sent())
           {
             $headers = array(
-                'x-created-with' => 'Imwg Laravel Bundle',// Just for fun...^-^
+                'x-created-with' => 'Imwg Laravel Bundle', // Just for fun...^-^
                 'Last-Modified' => gmdate('r', time()),
                 'Cache-Control' => 'must-revalidate',
                 'Expires' => gmdate('r', time()),
