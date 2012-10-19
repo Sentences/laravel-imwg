@@ -111,7 +111,7 @@ myimage.jpg must be located in `'image_path'` previous defined in `config/settin
    	*/
   	resize($width = null, $height = null, $min = false)
 
-**resize_min**
+**resizeMin**
 
 	/**
    	* Increase or decrease an image.
@@ -121,9 +121,9 @@ myimage.jpg must be located in `'image_path'` previous defined in `config/settin
    	* @return \ImageManipulationWithGd\Imwg
    	* @see \ImageManipulationWithGd\Imwg::resize()
    	*/
-  	resize_min($length = null)
+  	resizeMin($length = null)
 
-**resize_max**
+**resizeMax**
 
 	/**
    	* Increase or decrease an image.
@@ -133,7 +133,7 @@ myimage.jpg must be located in `'image_path'` previous defined in `config/settin
    	* @return \ImageManipulationWithGd\Imwg
    	* @see \ImageManipulationWithGd\Imwg::resize()
    	*/
-  	resize_max($length = null)
+  	resizeMax($length = null)
 
 **cut**
 
@@ -219,7 +219,7 @@ myimage.jpg must be located in `'image_path'` previous defined in `config/settin
    	*/
   	square($size = null, $pos = Imwg::F)
 
-**set_quality**
+**setQuality**
 
 	/**
     * Sets the Quality of the new image for JPG and PNG
@@ -228,7 +228,7 @@ myimage.jpg must be located in `'image_path'` previous defined in `config/settin
     * @param int $quality
     * @return \ImageManipulationWithGd\Imwg 
     */
-  	set_quality($quality = 92)
+  	setQuality($quality = 92)
 
 **polaroid**
 
@@ -349,7 +349,7 @@ myimage.jpg must be located in `'image_path'` previous defined in `config/settin
    	*/
   	convert($filetype = null, $bgcolor = array(255, 255, 255))
 
-**image_info**
+**imageInfo**
 
 	/**
    	* Gives information about the image
@@ -358,7 +358,7 @@ myimage.jpg must be located in `'image_path'` previous defined in `config/settin
    	* @param string $file Path to the Image
    	* @return array An array with: width,height,type,attr,bits,channels,mime
    	*/
-  	image_info($file)
+  	imageInfo($file)
 
 **save**
 
