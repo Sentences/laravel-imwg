@@ -1183,25 +1183,22 @@ class Imwg
 
     /**
      * Displays the image
-     * @param bool $header true sends the imageheader
      */
-    public function display($header = true)
+    public function display()
     {
         if (static::$image_resource) {
-            try
-            {
-                if ($header) {
-                    if (!headers_sent()) {
-                        $headers = array(
-                            'x-created-with' => 'Imwg Laravel Bundle', // Just for fun...^-^
-                            'Last-Modified' => gmdate('r', time()),
-                            'Cache-Control' => 'must-revalidate',
-                            'Expires' => gmdate('r', time()),
-                            'Content-type' => static::$file_info['mime'],
-                        );
-                        Response::make('', 200, $headers)->send_headers();
-                    }
-                }
+            try {
+                $headers = array(
+                    // Content-Disposition is not part of HTTP1/1
+                    // I think i will remove it in the future
+                    'Content-Disposition' => 'inline; filename="' . static::$file_name . '"',
+                    'Last-Modified' => gmdate('r', time()),
+                    'Cache-Control' => 'must-revalidate',
+                    'Expires' => gmdate('r', time()),
+                    'Content-type' => static::$file_info['mime'],
+                );
+                // Use buffering to get the image data
+                ob_start();
                 // JPEG
                 if (static::$file_info['type'] == "JPG") {
                     ImageJPEG(static::$image_resource, null, static::$image_quality);
@@ -1214,11 +1211,11 @@ class Imwg
                 elseif (static::$file_info['type'] == "PNG") {
                     ImagePNG(static::$image_resource, null, static::$image_quality);
                 }
+                $imageData = ob_get_contents();
+                ob_end_clean();
                 $this->destroy();
-                exit();
-            }
-            catch (Exception $e)
-            {
+                return Resp::make($imageData, '200', $headers);
+            } catch (Exception $e) {
                 Error::exception($e);
             }
         }
@@ -1230,16 +1227,13 @@ class Imwg
     public function destroy()
     {
         if (static::$image_resource) {
-            try
-            {
+            try {
                 imageDestroy(static::$image_resource);
                 static::$image_resource = null;
                 foreach ($this as $key) {
                     $this->$key = null;
                 }
-            }
-            catch (Exception $e)
-            {
+            } catch (Exception $e) {
                 Error::exception($e);
             }
         }

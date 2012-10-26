@@ -4,7 +4,7 @@
  * Imwg - Imagemanipulation with GD
  *
  * @package  Laravel-Imwg
- * @version  1.0
+ * @version  1.0.1
  * @author   Nico R <lt500r@gmail.com>
  * @link     https://github.com/Sentences
  */
