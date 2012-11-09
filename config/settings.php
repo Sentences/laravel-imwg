@@ -37,4 +37,9 @@ return array (
      * 1 month = 2419200
      */
     'cache_lifetime' => 2419200,
+
+    /**
+     * The folder to put your custom routes in your application/config folder
+     */
+    'routes_folder' => 'route_options',
 );
