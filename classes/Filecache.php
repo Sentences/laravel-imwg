@@ -17,13 +17,13 @@ class Filecache
 
     /**
      * The full path to the caching dir
-     * @var string 
+     * @var string
      */
     private static $cache_path = '';
 
     /**
      * The lifetime for the cached file
-     * @var int 
+     * @var int
      */
     private static $cache_lifetime = 0;
 
@@ -38,8 +38,8 @@ class Filecache
 
     /**
      * Checks, if the cache has the given file
-     * @param string $file The filename
-     * @param int $lifetime Lifetime of the file in cache
+     * @param  string  $file     The filename
+     * @param  int     $lifetime Lifetime of the file in cache
      * @return boolean false if not found
      */
     public static function has($file, $lifetime = 0)
@@ -52,33 +52,37 @@ class Filecache
             $filemtime = filemtime($file);
             if ($filemtime + $lifetime < time()) {
                 File::delete($file);
+
                 return false;
             }
+
             return true;
         }
     }
 
     /**
      * Get the Full imagepath from cache
-     * @param string $file
-     * @return string|boolean 
+     * @param  string         $file
+     * @return string|boolean
      */
     public static function getPath($file)
     {
         static::loadConfig();
         $file = static::$cache_path . $file;
+
         return $file;
     }
 
     /**
      * Creates the filename used for caching
-     * @param string $image The original image path
-     * @param array $option The route_option
-     * @return string The Filename 
+     * @param  string $image  The original image path
+     * @param  array  $option The route_option
+     * @return string The Filename
      */
     public static function retrieveValidFilename($image, $option)
     {
         $ext = File::extension($image);
+
         return md5($option . $image) . '.' . $ext;
     }
 
