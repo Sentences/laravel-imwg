@@ -32,8 +32,8 @@ class Filecache
      */
     private static function loadConfig()
     {
-        static::$cache_path = Config::get('imwg::settings.cache_path', '');
-        static::$cache_lifetime = Config::get('imwg::settings.cache_lifetime', 0);
+        static::$cache_path = Config::get('cache_path', '');
+        static::$cache_lifetime = Config::get('cache_lifetime', 0);
     }
 
     /**
