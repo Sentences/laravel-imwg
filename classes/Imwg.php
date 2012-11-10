@@ -1,10 +1,10 @@
 <?php
 namespace ImageManipulationWithGd;
 
-use \Laravel\Config as Config;
+use \Laravel\Config as LaravelConfig;
+use \Laravel\Error as Error;
 use \Laravel\File as File;
 use \Laravel\Response as Response;
-use \Laravel\Error as Error;
 
 /**
  * Imwg - Imagemanipulation with GD
@@ -100,7 +100,7 @@ class Imwg
         if (is_array($file)) {
             $file = $file['tmp_name'];
         }
-        static::$settings = Config::get('imwg::settings');
+        static::$settings = LaravelConfig::get('imwg::settings');
         static::$file = $file;
         static::$file_info = static::imageInfo($file);
         $this->createImageResource();
