@@ -1,6 +1,8 @@
 <?php
 Namespace ImageManipulationWithGd;
 
+use \Exception;
+
 class Bmp2jpg
 {
 
@@ -9,7 +11,7 @@ class Bmp2jpg
      * Original found here http://www.php.net/manual/de/function.imagecreate.php#53879
      * Modified version here http://www.programmierer-forum.de/function-imagecreatefrombmp-laeuft-mit-allen-bitraten-t143137.htm
      * @param string $filename Path to the Bitmap
-     * @return mixed false or a imageressource 
+     * @return mixed false or a imageressource
      */
     public static function make($filename)
     {

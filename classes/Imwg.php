@@ -5,6 +5,7 @@ use \Laravel\Config as LaravelConfig;
 use \Laravel\Error as Error;
 use \Laravel\File as File;
 use \Laravel\Response as Response;
+use \Exception;
 
 /**
  * Imwg - Imagemanipulation with GD
