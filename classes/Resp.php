@@ -2,7 +2,7 @@
 namespace ImageManipulationWithGd;
 
 use Laravel\File;
-use Laravel\Config;
+use Laravel\Config as LaravelConfig;
 /**
  *
  * @author Nico R
@@ -23,13 +23,13 @@ class Resp extends \Laravel\Response
         if (is_null($name)) {
             $name = basename($path);
         }
-        
+
         $filetime = filemtime($path);
         $etag = md5($filetime . $path);
         $time = gmdate('r', $filetime);
         $expires = gmdate('r', $filetime + $lifetime);
         $length = filesize($path);
-        
+
         $headers = array(
             // Content-Disposition is not part of HTTP1/1
             // I think i will remove it in the future
@@ -42,7 +42,7 @@ class Resp extends \Laravel\Response
         );
 
         // If enabled, we need to disable the profiler
-        Config::set('application.profiler', false);
+        LaravelConfig::set('application.profiler', false);
 
         // Check the Browsers cache
         $headerTest1 = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) && $_SERVER['HTTP_IF_MODIFIED_SINCE'] == $time;
@@ -56,7 +56,7 @@ class Resp extends \Laravel\Response
             'Content-Type' => $fileinfos['mime'],
             'Content-Length' => $length,
                 ));
-        
+
         return static::make(File::get($path), 200, $headers);
 
     }

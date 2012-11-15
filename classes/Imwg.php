@@ -1,10 +1,11 @@
 <?php
 namespace ImageManipulationWithGd;
 
-use \Laravel\Config as Config;
+use \Laravel\Config as LaravelConfig;
+use \Laravel\Error as Error;
 use \Laravel\File as File;
 use \Laravel\Response as Response;
-use \Laravel\Error as Error;
+use \Exception;
 
 /**
  * Imwg - Imagemanipulation with GD
@@ -19,32 +20,32 @@ class Imwg
     /**
      * Holds the filters
      * config/filters.php
-     * @var array 
+     * @var array
      */
     private static $settings = array();
 
     /**
      * Holds the path to the current image
-     * @var string 
+     * @var string
      */
     private static $file = null;
 
     /**
      * The basename of the image
-     * @var string 
+     * @var string
      */
     private static $file_name;
 
     /**
      * Holds infos about the image
      * size, mime
-     * @var array 
+     * @var array
      */
     private static $file_info = array();
 
     /**
      * The image resource
-     * @var resource 
+     * @var resource
      */
     private static $image_resource = null;
 
@@ -57,7 +58,7 @@ class Imwg
     private static $image_quality = 92;
 
     /**
-     * Constants for cutting images 
+     * Constants for cutting images
      */
 
     CONST N = 2;
@@ -78,21 +79,21 @@ class Imwg
     /**
      * Holds the position, where text can be placed inside of a polaroid
      * pos x
-     * @var int 
+     * @var int
      */
     private static $text_pos_x = 0;
 
     /**
      * Holds the position, where text can be placed inside of a polaroid
      * pos y
-     * @var int 
+     * @var int
      */
     private static $text_pos_y = 0;
 
     /**
      * Instantiates Imwg and receives the filetype, width, height and attributes for
      * <img src='' ..attributes.. />
-     * @param mixed $file string path or array from Input::file('form_field') 
+     * @param mixed $file string path or array from Input::file('form_field')
      * can _NOT_ hold multiple images
      */
     public function __construct($file)
@@ -100,7 +101,7 @@ class Imwg
         if (is_array($file)) {
             $file = $file['tmp_name'];
         }
-        static::$settings = Config::get('imwg::settings');
+        static::$settings = LaravelConfig::get('imwg::settings');
         static::$file = $file;
         static::$file_info = static::imageInfo($file);
         $this->createImageResource();
@@ -118,9 +119,9 @@ class Imwg
     }
 
     /**
-     * This creates the imageresource and sets the 
+     * This creates the imageresource and sets the
      * default quality for JPG and PNG
-     * @throws type 
+     * @throws type
      */
     private function createImageResource()
     {
@@ -159,11 +160,11 @@ class Imwg
 
     /**
      * Increase or decrease an image.
-     * if only 1 parameter is given, the image will be reiszed proportional, 
+     * if only 1 parameter is given, the image will be reiszed proportional,
      * otherwise not.
      * @param int width the new width
      * @param int height the new height
-     * @param bool min if true, the shortest edge length will be $width
+     * @param  bool min if true, the shortest edge length will be $width
      * @return \ImageManipulationWithGd\Imwg
      */
     public function resize($width = null, $height = null, $min = false)
@@ -171,6 +172,7 @@ class Imwg
         if (static::$image_resource) {
             $holdProportions = true;
             if (is_null($width) && is_null($height)) { // nothing to do, return
+
                 return $this;
             }
             // Set the max-width/height if only 1 param is given
@@ -240,6 +242,7 @@ class Imwg
             static::$file_info['height'] = $newH;
             static::$file_info['attr'] = 'width="' . $newW . '" height="' . $newH . '"';
         }
+
         return $this;
     }
 
@@ -254,6 +257,7 @@ class Imwg
     public function resizeMin($length = null)
     {
         $this->resize($length, null, true);
+
         return $this;
     }
 
@@ -268,6 +272,7 @@ class Imwg
     public function resizeMax($length = null)
     {
         $this->resize($length, null, false);
+
         return $this;
     }
 
@@ -285,11 +290,11 @@ class Imwg
      *       |                  |
      *       +------------------+
      * </code>
-     * @param int $width Width of the cut out image
-     * @param int $height Height of the cut out image
-     * @param int $posX Point X where we start cutting from top
-     * @param int $posY Point Y where we start cutting from left
-     * @return \ImageManipulationWithGd\Imwg 
+     * @param  int                           $width  Width of the cut out image
+     * @param  int                           $height Height of the cut out image
+     * @param  int                           $posX   Point X where we start cutting from top
+     * @param  int                           $posY   Point Y where we start cutting from left
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function cut($width = null, $height = null, $posX = 0, $posY = 0)
     {
@@ -329,14 +334,15 @@ class Imwg
             static::$file_info['height'] = $height;
             static::$file_info['attr'] = 'width="' . $width . '" height="' . $height . '"';
         }
+
         return $this;
     }
 
     /**
      * Cuts rectangles out of the original
-     * @param int $with the width of the rectangle
-     * @param int $height the height of the rectangle
-     * @param int $pos the cutting position
+     * @param  int                           $with   the width of the rectangle
+     * @param  int                           $height the height of the rectangle
+     * @param  int                           $pos    the cutting position
      * @return \ImageManipulationWithGd\Imwg
      */
     public function cutout($width, $height, $pos = Imwg::M)
@@ -410,6 +416,7 @@ class Imwg
             }
             $this->cut($width, $height, $cutX, $cutY);
         }
+
         return $this;
     }
 
@@ -417,7 +424,7 @@ class Imwg
      * Cuts out an square
      * If size is not given, the result can be an rectangle, because it cuts the
      * image from a 3x3 field
-     * @param int $size the length of edges. If you cut from the fullimage 
+     * @param int $size the length of edges. If you cut from the fullimage
      * ( F, FN, FE, FW, FS ), the result image will be resized to $size
      * @param int $pos the postion where the image will be cuttet. Can be one of
      * <code>
@@ -443,14 +450,14 @@ class Imwg
      * +----+---+----+
      * | SW | S | SE |
      * +----+---+----+
-     * FN,FW and FE,FS has internal the same int value. so they return the 
+     * FN,FW and FE,FS has internal the same int value. so they return the
      * same result
-     * +--------+---+  +--+------+--+ +---+-------+ 
+     * +--------+---+  +--+------+--+ +---+-------+
      * |        |   |  |  |      |  | |   |       |
      * |   FW   |   |  |  |   F  |  | |   |  FE   |  <-- The Image
      * |        |   |  |  |      |  | |   |       |
-     * +--------+---+  +--+------+--+ +---+-------+ 
-     * 
+     * +--------+---+  +--+------+--+ +---+-------+
+     *
      * +--------+  +--------+  +--------+
      * |        |  |        |  |        |
      * |   FN   |  +--------+  |        |
@@ -494,6 +501,7 @@ class Imwg
                 $this->resize($size);
             }
         }
+
         return $this;
     }
 
@@ -501,8 +509,8 @@ class Imwg
      * Sets the Quality of the new image for JPG and PNG
      * JPG between 0 (worst) and 100 (best)
      * PNG between 0 (best) and 9 (worst)
-     * @param int $quality
-     * @return \ImageManipulationWithGd\Imwg 
+     * @param  int                           $quality
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function setQuality($quality = 92)
     {
@@ -514,17 +522,18 @@ class Imwg
         elseif (static::$file_info['type'] == "PNG") {
             static::$image_quality = (!is_null($quality) && $quality >= 0 && $quality <= 9 ) ? $quality : 0;
         }
+
         return $this;
     }
 
     /**
      * Creates an image, that looks like a polaroid with a white border
-     * @param int $size the size of the result image
-     * @param int $borderTopLeftRight the top, left and right border
-     * @param int $borderBottom the bottom border
-     * @param array $polaroidColor backgroundcolor default white array(255,255,255)
-     * @param array $bordercolor bordercolor default black array(0,0,0)
-     * @return \ImageManipulationWithGd\Imwg 
+     * @param  int                           $size               the size of the result image
+     * @param  int                           $borderTopLeftRight the top, left and right border
+     * @param  int                           $borderBottom       the bottom border
+     * @param  array                         $polaroidColor      backgroundcolor default white array(255,255,255)
+     * @param  array                         $bordercolor        bordercolor default black array(0,0,0)
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function polaroid($size = null, $borderTopLeftRight = 10, $borderBottom = 50, $polaroidColor = array(255, 255, 255), $bordercolor = array(0, 0, 0))
     {
@@ -569,6 +578,7 @@ class Imwg
             static::$file_info['height'] = $polaroidHeight;
             static::$file_info['attr'] = 'width="' . $polaroidWidth . '" height="' . $polaroidHeight . '"';
         }
+
         return $this;
     }
 
@@ -576,14 +586,14 @@ class Imwg
      * Writes text into the image
      * Uses GD internal fonts
      * You should, if possible, use Imwg::ttftext() because GD text is ugly :)
-     * @param string $message The message to display. 
+     * @param string $message The message to display.
      * Newline (\n) makes... tadaa a newline :)
-     * @param int $fontType The internal GD font. Integer between 1 and 5
-     * @param int $posX X-Position where the text starts
-     * @param int $posY Y-Position where the text starts
-     * @param array $color Textcolor, default black array(0, 0, 0)
-     * @param array $shadowColor Textshadowcolor, default array(185, 211, 238)
-     * @return \ImageManipulationWithGd\Imwg 
+     * @param  int                           $fontType    The internal GD font. Integer between 1 and 5
+     * @param  int                           $posX        X-Position where the text starts
+     * @param  int                           $posY        Y-Position where the text starts
+     * @param  array                         $color       Textcolor, default black array(0, 0, 0)
+     * @param  array                         $shadowColor Textshadowcolor, default array(185, 211, 238)
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function text($message = null, $fontType = 3, $posX = 0, $posY = 0, $color = array(0, 0, 0), $shadowColor = array(185, 211, 238))
     {
@@ -603,6 +613,7 @@ class Imwg
                 $y += imagefontheight($fontType);
             }
         }
+
         return $this;
     }
 
@@ -610,15 +621,15 @@ class Imwg
      * Writes text into the image with a TTF Font
      * @param string $message The Message to display.
      * Newline (\n) makes... tadaa a newline :) hopefully ^_^
-     * @param string $fontFile Path to your favorite TTF-Fontfile (path/to/example.ttf)
-     * @param int $fontSize The fontsize in... hmm px? i have no idea
-     * @param int $rotate Rotates the $essage in $rotate degrees 
-     * @param int $posX X-Position of the $message
-     * @param int $posY Y-Position of the $message
-     * @param array $color Text color, default black array(0,0,0)
-     * @param bool $center true centers the message horizontal
-     * @param bool $middle true centers the message vertical
-     * @return \ImageManipulationWithGd\Imwg 
+     * @param  string                        $fontFile Path to your favorite TTF-Fontfile (path/to/example.ttf)
+     * @param  int                           $fontSize The fontsize in... hmm px? i have no idea
+     * @param  int                           $rotate   Rotates the $essage in $rotate degrees
+     * @param  int                           $posX     X-Position of the $message
+     * @param  int                           $posY     Y-Position of the $message
+     * @param  array                         $color    Text color, default black array(0,0,0)
+     * @param  bool                          $center   true centers the message horizontal
+     * @param  bool                          $middle   true centers the message vertical
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function ttftext($message = null, $fontFile = null, $fontSize = 12, $rotate = 0, $posX = 0, $posY = 0, $color = array(0, 0, 0), $center = false, $middle = false)
     {
@@ -655,6 +666,7 @@ class Imwg
                 }
             }
         }
+
         return $this;
     }
 
@@ -664,7 +676,7 @@ class Imwg
      * you dont see anything from the original behind the watermark
      * The watermark will be resized to fit the position
      * @param string $imageWatermark Path to the watermark image
-     * @param int $pos Position of the watermark image. Can be one of
+     * @param int    $pos            Position of the watermark image. Can be one of
      * <code>
      * Const     Name    Integer Value
      * Imwg::N = North, (int 2)
@@ -688,14 +700,14 @@ class Imwg
      * +----+---+----+
      * | SW | S | SE |
      * +----+---+----+
-     * FN,FW and FE,FS has internal the same int value. so they return the 
+     * FN,FW and FE,FS has internal the same int value. so they return the
      * same result
-     * +--------+---+  +--+------+--+ +---+-------+ 
+     * +--------+---+  +--+------+--+ +---+-------+
      * |        |   |  |  |      |  | |   |       |
      * |   FW   |   |  |  |   F  |  | |   |  FE   |  <-- The Image
      * |        |   |  |  |      |  | |   |       |
-     * +--------+---+  +--+------+--+ +---+-------+ 
-     * 
+     * +--------+---+  +--+------+--+ +---+-------+
+     *
      * +--------+  +--------+  +--------+
      * |        |  |        |  |        |
      * |   FN   |  +--------+  |        |
@@ -705,7 +717,7 @@ class Imwg
      * |        |  |        |  |        |
      * +--------+  +--------+  +--------+
      * </code>
-     * @return \ImageManipulationWithGd\Imwg 
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function watermark($imageWatermark, $pos = Imwg::F)
     {
@@ -857,14 +869,15 @@ class Imwg
                 static::$image_resource = $tempImage;
             }
         }
+
         return $this;
     }
 
     /**
      * Rotates the image
-     * @param int $degrees Rotation in degrees 0 - 360, default 180
-     * @param array $bgcolor Specifies the color of the uncovered zone after the rotation
-     * @return \ImageManipulationWithGd\Imwg 
+     * @param  int                           $degrees Rotation in degrees 0 - 360, default 180
+     * @param  array                         $bgcolor Specifies the color of the uncovered zone after the rotation
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function rotate($degrees = 180, $bgcolor = -1)
     {
@@ -884,15 +897,16 @@ class Imwg
             static::$file_info['height'] = imagesy(static::$image_resource);
             static::$file_info['attr'] = 'width="' . static::$file_info['width'] . '" height="' . static::$file_info['height'] . '"';
         }
+
         return $this;
     }
 
     /**
      * Creates a reflection under the image
-     * @param int $reflectionSize The size of the reflection
-     * @param array $bgcolor Color of the reflection background 
+     * @param int   $reflectionSize The size of the reflection
+     * @param array $bgcolor        Color of the reflection background
      * default white array(255, 255, 255)
-     * @return \ImageManipulationWithGd\Imwg 
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function reflection($reflectionSize = 30, $bgcolor = array(255, 255, 255))
     {
@@ -936,12 +950,13 @@ class Imwg
             static::$file_info['height'] += $reflectionSize;
             static::$file_info['attr'] = 'width="' . static::$file_info['width'] . '" height="' . static::$file_info['height'] . '"';
         }
+
         return $this;
     }
 
     /**
      * This, of course, mirrors the image
-     * @param string $type h, v, b or	HORIZONTAL, VERTICAL, BOTH
+     * @param  string                        $type h, v, b or	HORIZONTAL, VERTICAL, BOTH
      * @return \ImageManipulationWithGd\Imwg
      */
     public function mirror($type = 'BOTH')
@@ -983,6 +998,7 @@ class Imwg
             imagedestroy(static::$image_resource);
             static::$image_resource = $tempImage;
         }
+
         return $this;
     }
 
@@ -997,7 +1013,7 @@ class Imwg
      * @param int $alpha
      * @see http://www.php.net/manual/en/function.imagefilter.php
      * @see http://www.phpied.com/image-fun-with-php-part-2/
-     * @return \ImageManipulationWithGd\Imwg 
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function filter($filter = 999, $arg1 = 0, $arg2 = 0, $arg3 = 0, $alpha = 0)
     {
@@ -1034,14 +1050,15 @@ class Imwg
                     break;
             }
         }
+
         return $this;
     }
 
     /**
      * Converts an image to another type
-     * @param string $filetype JPG, PNG, GIF
-     * @param array $bgcolor for converting PNG whith transparency to JPG
-     * @return \ImageManipulationWithGd\Imwg 
+     * @param  string                        $filetype JPG, PNG, GIF
+     * @param  array                         $bgcolor  for converting PNG whith transparency to JPG
+     * @return \ImageManipulationWithGd\Imwg
      */
     public function convert($filetype = null, $bgcolor = array(255, 255, 255))
     {
@@ -1075,16 +1092,17 @@ class Imwg
                 // nothing
                 break;
         }
+
         return $this;
     }
 
     /**
      * Calculates the area, that the message with the given font needs
-     * @param int $fontSize The fontsize
-     * @param int $fontAngle The rotation
-     * @param string $fontFile The path to the fontfile
-     * @param string $text The message
-     * @return array with the following elements:
+     * @param  int    $fontSize  The fontsize
+     * @param  int    $fontAngle The rotation
+     * @param  string $fontFile  The path to the fontfile
+     * @param  string $text      The message
+     * @return array  with the following elements:
      * left, top => Coordinates for the left top corner
      * width, height => size of the textbox
      */
@@ -1108,8 +1126,8 @@ class Imwg
      * Gives information about the image
      * static call, so you can use it without loading an image to Imwg
      * $info = Imwg::getImageInfo('path/to/image.jpg');
-     * @param string $file Path to the Image
-     * @return array An array with: width,height,type,attr,bits,channels,mime
+     * @param  string $file Path to the Image
+     * @return array  An array with: width,height,type,attr,bits,channels,mime
      */
     public static function imageInfo($file)
     {
@@ -1134,15 +1152,16 @@ class Imwg
         if (!array_key_exists('mime', $data)) {
             $data['mime'] = "image/unknown";
         }
+
         return $data;
     }
 
     /**
      * Saves an Image
-     * @param string $file_name The new Filename
-     * @param bool $override True to override existing files
-     * @param bool $destroy True to destroy the Imwg instance
-     * @return array with infos about the image. example:<code>
+     * @param  string $file_name The new Filename
+     * @param  bool   $override  True to override existing files
+     * @param  bool   $destroy   True to destroy the Imwg instance
+     * @return array  with infos about the image. example:<code>
      *    (
      *         [width] => 32
      *         [height] => 32
@@ -1214,6 +1233,7 @@ class Imwg
                 $imageData = ob_get_contents();
                 ob_end_clean();
                 $this->destroy();
+
                 return Resp::make($imageData, '200', $headers);
             } catch (Exception $e) {
                 Error::exception($e);

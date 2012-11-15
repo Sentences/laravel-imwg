@@ -1,4 +1,8 @@
 <?php
+use ImageManipulationWithGd\Config;
+use ImageManipulationWithGd\Filecache;
+use ImageManipulationWithGd\Imwg;
+use ImageManipulationWithGd\Resp;
 
 /**
  * Imwg - Imagemanipulation with GD
@@ -8,52 +12,55 @@
  * @author   Nico R <lt500r@gmail.com>
  * @link     https://github.com/Sentences
  */
-Route::get('(:bundle)/(:any)/(:all)', function($options, $image)
-        {
-            // Load the default options
-            $config = Config::get('imwg::settings');
-            $image = $config['image_path'] . $image;
+Route::get('(:bundle)/(:any)/(:all)', function($options, $image) {
 
-            // Check if the Config file exists
-            if ((Config::has('imwg::route_options/' . $options)) && (File::exists($image))) {
-                $opt = Config::get('imwg::route_options/' . $options);
-                // check, if we should use the cache
-                // First, check the $options for the route
-                //  - then check the config file
-                $use_cache = Config::get('imwg::route_options/' . $options . '.use_cache', Config::get('imwg::settings.use_cache'));
-                if ($use_cache) { // We should use the cache
-                    $lifetime = Config::get('imwg::route_options/' . $options . '.cache_lifetime', Config::get('imwg::settings.cache_lifetime'));
-                    // retrieve a filename for the cache
-                    $cache_filename = ImageManipulationWithGd\Filecache::retrieveValidFilename($image, $options);
-                    if (ImageManipulationWithGd\Filecache::has($cache_filename, $lifetime)) { // The cache has our file, get the full filepath
-                        $cached_image = ImageManipulationWithGd\Filecache::getPath($cache_filename);
-                        return ImageManipulationWithGd\Resp::inline($cached_image, basename($image), $lifetime);
-                    } else { // File is not cached, lets get a path
-                        $cache_image_path = ImageManipulationWithGd\Filecache::getPath($cache_filename);
+    // Load the default options
+    $config = Config::get();
+    $image = $config['image_path'] . $image;
 
-                        $imwg = ImageManipulationWithGd\Imwg::open($image);
-                        parseOptions($imwg, $opt);
-                        $imwg->save($cache_image_path);
-                        return ImageManipulationWithGd\Resp::inline($cache_image_path, basename($image), $lifetime);
-                    }
-                } else {
-                    // caching is disabled
-                    $imwg = ImageManipulationWithGd\Imwg::open($image);
-                    parseOptions($imwg, $opt);
-                    return $imwg->display();
-                    #$imwg->display();
-                    #exit();
-                }
+    // Check if the Config file exists
+    if ((Config::route($options)) && (File::exists($image))) {
+        $opt = Config::route($options);
+        // check, if we should use the cache
+        // First, check the $options for the route
+        //  - then check the config file
+        $use_cache = Config::route($options, 'use_cache', Config::get('use_cache'));
+        if ($use_cache) { // We should use the cache
+            $lifetime = Config::route($options, 'cache_lifetime', Config::get('cache_lifetime'));
+            // retrieve a filename for the cache
+            $cache_filename = Filecache::retrieveValidFilename($image, $options);
+            if (Filecache::has($cache_filename, $lifetime)) { // The cache has our file, get the full filepath
+                $cached_image = Filecache::getPath($cache_filename);
+
+                return Resp::inline($cached_image, basename($image), $lifetime);
+            } else { // File is not cached, lets get a path
+                $cache_image_path = Filecache::getPath($cache_filename);
+
+                $imwg = Imwg::open($image);
+                parseOptions($imwg, $opt);
+                $imwg->save($cache_image_path);
+
+                return Resp::inline($cache_image_path, basename($image), $lifetime);
             }
-            // No config file
-            // Check if the image exists
-            if (File::exists($image)) {
-                return ImageManipulationWithGd\Resp::inline($image);
-            }
-            // No config and
-            // no image found
-            return Response::error('404');
-        });
+        } else {
+            // caching is disabled
+            $imwg = Imwg::open($image);
+            parseOptions($imwg, $opt);
+
+            return $imwg->display();
+            #$imwg->display();
+            #exit();
+        }
+    }
+    // No config file
+    // Check if the image exists
+    if (File::exists($image)) {
+        return Resp::inline($image);
+    }
+    // No config and
+    // no image found
+    return Response::error('404');
+});
 
 /**
  * This parses the options to the Imwg Class

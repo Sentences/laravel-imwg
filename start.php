@@ -10,7 +10,10 @@
  */
 
 Autoloader::namespaces(array(
-	'ImageManipulationWithGd'   => __DIR__ . DS . 'classes' . DS,
+    'ImageManipulationWithGd'   => __DIR__ . DS . 'classes' . DS,
 ));
 
 Autoloader::alias('ImageManipulationWithGd\\Imwg', 'Imwg');
+
+// Merge user configuration files
+ImageManipulationWithGd\Config::merge();
