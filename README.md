@@ -36,7 +36,7 @@ In this cas, $img is an array which holds some information about the createt ima
     	[mime] => image/jpeg
 	)
 ## Working with route based image manipulation ##
-Edit `config/settings.php` to fit your needs.
+Edit `config/settings.php` or copy this to `application/config/imwg.php` to fit your needs.
 
 	return array (
     /**
@@ -70,8 +70,12 @@ Edit `config/settings.php` to fit your needs.
      * 1 month = 2419200
      */
     'cache_lifetime' => 2419200,
+    /**
+     * The folder to put your custom routes in your application/config folder
+     */
+    'routes_folder' => 'imwg_routes',
 	);
-Create an options file in `config/route_options/`
+Create an options file in `application/config/imwg_routes/` as defined in your settings file, or use `config/route_options/` as default location.
 
 Example file `polaroid.php`:
 	
