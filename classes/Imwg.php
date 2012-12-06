@@ -71,10 +71,10 @@ class Imwg
     CONST NW = 1;
     CONST M = 5;
     CONST FN = 10;
-    CONST FW = 10;
     CONST F = 11;
-    CONST FE = 12;
     CONST FS = 12;
+    CONST FW = 13;
+    CONST FE = 14;
 
     /**
      * Holds the position, where text can be placed inside of a polaroid
@@ -441,8 +441,8 @@ class Imwg
      * Imwg::FN = Fullimage North, (int 10)
      * Imwg::FS = Fullimage South, (int 12)
      * Imwg::F = Fullimage, (int 11)
-     * Imwg::FE = Fullimage East, (int 12)
-     * Imwg::FW = Fullimage West, (int 10)
+     * Imwg::FE = Fullimage East, (int 14)
+     * Imwg::FW = Fullimage West, (int 13)
      * +----+---+----+
      * | NW | N | NE |
      * +----+---+----+
@@ -690,8 +690,8 @@ class Imwg
      * Imwg::FN = Fullimage North, (int 10)
      * Imwg::FS = Fullimage South, (int 12)
      * Imwg::F = Fullimage, (int 11)
-     * Imwg::FE = Fullimage East, (int 12)
-     * Imwg::FW = Fullimage West, (int 10)
+     * Imwg::FE = Fullimage East, (int 14)
+     * Imwg::FW = Fullimage West, (int 13)
      * +----+---+----+
      * | NW | N | NE |
      * +----+---+----+
@@ -776,53 +776,49 @@ class Imwg
                 $wPointX = $xBonus;
                 $wPointY = $yBonus;
                 switch ($pos) {
-                    case 1:
-                    case 10:
-                    case 11:
-                    case 12:
-                        // default top left corner
+                    case static::NW:
+                        // currently default
                         break;
-
-                    case 2:
-                        // N
+                    case static::FN:
+                        // currently default
+                        break;
+                    case static::FW:
+                        $wPointX = 0;
+                        break;
+                    case static::F:
+                        // currently default
+                        break;
+                    case static::FS:
+                        $wPointY = static::$file_info['height'] - $newWatermarkHeight;
+                        break;
+                    case static::FE:
+                        $wPointX = static::$file_info['width'] - $newWatermarkWidth;
+                        break;
+                    case static::N:
                         $wPointX += $fieldWidth;
                         break;
-
-                    case 3:
-                        // NE
+                    case static::NE:
                         $wPointX += $fieldWidth * 2;
                         break;
-
-                    case 4:
-                        // W
+                    case static::W:
                         $wPointY += $fieldHeight;
                         break;
-
-                    case 5:
-                        // M
+                    case static::M:
                         $wPointX += $fieldWidth;
                         $wPointY += $fieldHeight;
                         break;
-
-                    case 6:
-                        // E
+                    case static::E:
                         $wPointX += $fieldWidth * 2;
                         $wPointY += $fieldHeight;
                         break;
-
-                    case 7:
-                        // SW
+                    case static::SW:
                         $wPointY += $fieldHeight * 2;
                         break;
-
-                    case 8:
-                        // S
+                    case static::S:
                         $wPointX += $fieldWidth;
                         $wPointY += $fieldHeight * 2;
                         break;
-
-                    case 9:
-                        // SE
+                    case static::SE:
                         $wPointX += $fieldWidth * 2;
                         $wPointY += $fieldHeight * 2;
                         break;
