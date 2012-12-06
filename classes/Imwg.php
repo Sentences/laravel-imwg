@@ -658,7 +658,6 @@ class Imwg
                         $pY = $posY + $i * $textBox['height'];
                     }
                     if (static::$file_info['type'] == "PNG") { // Help for PNG Alpha
-                        imagealphablending(static::$image_resource, true);
                         imagesavealpha(static::$image_resource, true);
                     }
                     $color = imagecolorallocate(static::$image_resource, $color[0], $color[1], $color[2]);
