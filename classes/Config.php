@@ -51,7 +51,7 @@ class Config extends LaravelConfig
 
     $route = LaravelConfig::has('imwg::route_options/'.$route)
       ? LaravelConfig::get('imwg::route_options/'.$route)
-      : LaravelConfig::get($customFolder.$route, array());
+      : LaravelConfig::get($customFolder.$route, $default);
 
     return $route;
   }
